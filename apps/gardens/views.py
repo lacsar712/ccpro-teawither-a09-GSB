@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Count
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
@@ -12,8 +13,8 @@ from django.views.generic import (
     UpdateView,
 )
 
-from .forms import GardenForm, TroughForm, WitherBatchForm
-from .models import Garden, Trough, WitherBatch
+from .forms import GardenForm, LeafProvenanceForm, TroughForm, WitherBatchForm
+from .models import Garden, LeafProvenance, Trough, WitherBatch
 
 
 def _wants_htmx(request):
@@ -26,6 +27,7 @@ def home(request):
         "garden_count": Garden.objects.count(),
         "trough_count": Trough.objects.count(),
         "batch_count": WitherBatch.objects.count(),
+        "provenance_count": LeafProvenance.objects.count(),
         "ready_count": Trough.objects.filter(status=Trough.STATUS_READY).count(),
         "withering_count": Trough.objects.filter(
             status=Trough.STATUS_WITHERING
@@ -33,6 +35,10 @@ def home(request):
         "loading_count": Trough.objects.filter(
             status=Trough.STATUS_LOADING
         ).count(),
+        # 各园溯源条数对照：与溯源列表按园过滤（?garden=<pk>）的行数同口径
+        "garden_provenances": Garden.objects.annotate(
+            provenance_count=Count("provenances")
+        ),
     }
     return render(request, "home.html", context)
 
@@ -88,6 +94,13 @@ class GardenDeleteView(LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy("garden_list")
 
     def form_valid(self, form):
+        # 园下仍有茶青溯源条时拒绝删除（模型层同为 PROTECT）
+        if self.object.provenances.exists():
+            messages.error(
+                self.request,
+                f"茶园「{self.object.name}」仍存在茶青溯源条，拒绝删除。",
+            )
+            return redirect("garden_list")
         messages.success(self.request, "茶园已删除")
         return super().form_valid(form)
 
@@ -199,4 +212,72 @@ class BatchDeleteView(LoginRequiredMixin, DeleteView):
 
     def form_valid(self, form):
         messages.success(self.request, "萎凋批次已删除")
+        return super().form_valid(form)
+
+
+# ---- LeafProvenance（茶青溯源条） ----
+
+
+class ProvenanceListView(LoginRequiredMixin, ListView):
+    model = LeafProvenance
+    template_name = "provenances/list.html"
+    context_object_name = "provenances"
+
+    def get_queryset(self):
+        qs = LeafProvenance.objects.select_related(
+            "garden", "batch", "batch__trough"
+        ).all()
+        garden_id = self.request.GET.get("garden", "").strip()
+        if garden_id.isdigit():
+            qs = qs.filter(garden_id=int(garden_id))
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        garden_id = self.request.GET.get("garden", "").strip()
+        context["gardens"] = Garden.objects.all()
+        context["selected_garden"] = int(garden_id) if garden_id.isdigit() else None
+        return context
+
+    def get(self, request, *args, **kwargs):
+        self.object_list = self.get_queryset()
+        if _wants_htmx(request):
+            html = render_to_string(
+                "provenances/_table.html",
+                {"provenances": self.object_list},
+                request=request,
+            )
+            return HttpResponse(html)
+        return super().get(request, *args, **kwargs)
+
+
+class ProvenanceCreateView(LoginRequiredMixin, CreateView):
+    model = LeafProvenance
+    form_class = LeafProvenanceForm
+    template_name = "provenances/form.html"
+    success_url = reverse_lazy("provenance_list")
+
+    def form_valid(self, form):
+        messages.success(self.request, "茶青溯源条已创建")
+        return super().form_valid(form)
+
+
+class ProvenanceUpdateView(LoginRequiredMixin, UpdateView):
+    model = LeafProvenance
+    form_class = LeafProvenanceForm
+    template_name = "provenances/form.html"
+    success_url = reverse_lazy("provenance_list")
+
+    def form_valid(self, form):
+        messages.success(self.request, "茶青溯源条已更新")
+        return super().form_valid(form)
+
+
+class ProvenanceDeleteView(LoginRequiredMixin, DeleteView):
+    model = LeafProvenance
+    template_name = "provenances/confirm_delete.html"
+    success_url = reverse_lazy("provenance_list")
+
+    def form_valid(self, form):
+        messages.success(self.request, "茶青溯源条已删除")
         return super().form_valid(form)

@@ -1,5 +1,9 @@
+from zoneinfo import ZoneInfo
+
 from django.core.exceptions import ValidationError
 from django.db import models
+
+CN_TZ = ZoneInfo("Asia/Shanghai")
 
 
 class Garden(models.Model):
@@ -109,3 +113,56 @@ class WitherBatch(models.Model):
 
     def __str__(self):
         return f"{self.trough} @ {self.startedAt:%Y-%m-%d %H:%M}"
+
+
+class LeafProvenance(models.Model):
+    """茶青溯源条：一批次一条，园批必须一致。"""
+
+    garden = models.ForeignKey(
+        Garden,
+        on_delete=models.PROTECT,
+        related_name="provenances",
+        verbose_name="所属茶园",
+    )
+    batch = models.OneToOneField(
+        WitherBatch,
+        on_delete=models.CASCADE,
+        related_name="provenance",
+        verbose_name="关联批次",
+    )
+    villageGroup = models.CharField("鲜叶村组", max_length=120)
+    pickedOn = models.DateField("采摘日")
+    registrar = models.CharField("登记人", max_length=60)
+
+    class Meta:
+        ordering = ["-pickedOn", "-id"]
+        verbose_name = "茶青溯源条"
+        verbose_name_plural = "茶青溯源条"
+
+    def __str__(self):
+        return f"{self.garden.name}-{self.villageGroup} @ {self.pickedOn:%Y-%m-%d}"
+
+    def clean(self):
+        super().clean()
+        if self.batch_id and self.garden_id:
+            batch_garden_id = self.batch.trough.garden_id
+            if batch_garden_id != self.garden_id:
+                raise ValidationError(
+                    {
+                        "batch": "园批不一致：关联批次所属槽位的茶园与条上茶园不符，"
+                        "请重新选择。"
+                    }
+                )
+        if self.batch_id and self.pickedOn:
+            start_date = self.batch.startedAt.astimezone(CN_TZ).date()
+            if self.pickedOn > start_date:
+                raise ValidationError(
+                    {
+                        "pickedOn": "采摘日不得晚于批次开始日"
+                        f"（东八区 {start_date:%Y-%m-%d}）。"
+                    }
+                )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)

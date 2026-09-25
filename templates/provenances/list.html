@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}茶青溯源{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>茶青溯源</h1>
+  <div class="actions">
+    <button class="btn btn-secondary btn-sm"
+            hx-get="{% url 'provenance_list' %}"
+            hx-target="#provenance-table"
+            hx-swap="innerHTML">刷新列表</button>
+    <a class="btn" href="{% url 'provenance_create' %}">新建溯源条</a>
+  </div>
+</div>
+<div class="card" style="margin-bottom:1rem">
+  <form method="get" action="{% url 'provenance_list' %}" class="actions" style="align-items:center"
+        hx-get="{% url 'provenance_list' %}"
+        hx-target="#provenance-table"
+        hx-swap="innerHTML"
+        hx-trigger="change from:select, submit">
+    <label for="garden-filter" style="font-weight:600">按茶园过滤</label>
+    <select id="garden-filter" name="garden" class="input" style="max-width:240px">
+      <option value="">全部茶园</option>
+      {% for g in gardens %}
+      <option value="{{ g.pk }}" {% if selected_garden == g.pk %}selected{% endif %}>{{ g.name }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-secondary btn-sm" type="submit">应用</button>
+  </form>
+</div>
+<div class="card" id="provenance-table">
+  {% include "provenances/_table.html" %}
+</div>
+{% endblock %}

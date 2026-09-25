@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from .models import Garden, Trough, WitherBatch
+from .models import Garden, LeafProvenance, Trough, WitherBatch
 
 
 def ensure_seed_data():
@@ -53,21 +53,21 @@ def ensure_seed_data():
     )
 
     now = timezone.now()
-    WitherBatch.objects.create(
+    b1 = WitherBatch.objects.create(
         trough=t1,
         startedAt=now - timezone.timedelta(hours=18),
         targetMoisture=Decimal("38.00"),
         actualMoisture=Decimal("37.50"),
         rollGrade="一级",
     )
-    WitherBatch.objects.create(
+    b2 = WitherBatch.objects.create(
         trough=t2,
         startedAt=now - timezone.timedelta(hours=2),
         targetMoisture=Decimal("40.00"),
         actualMoisture=None,
         rollGrade="待评",
     )
-    WitherBatch.objects.create(
+    b3 = WitherBatch.objects.create(
         trough=t3,
         startedAt=now - timezone.timedelta(hours=30),
         targetMoisture=Decimal("36.00"),
@@ -83,7 +83,7 @@ def ensure_seed_data():
         loadKg=Decimal("110.00"),
         status=Trough.STATUS_WITHERING,
     )
-    WitherBatch.objects.create(
+    b4 = WitherBatch.objects.create(
         trough=t4,
         startedAt=now - timezone.timedelta(hours=24),
         targetMoisture=Decimal("35.00"),
@@ -92,3 +92,37 @@ def ensure_seed_data():
     )
     t4.status = Trough.STATUS_READY
     t4.save()
+
+    # 茶青溯源条：两园多条，一批次一条，园批一致，采摘日不晚于批次开始日
+    def picked(batch, days_before=0):
+        local_date = timezone.localtime(batch.startedAt).date()
+        return local_date - timezone.timedelta(days=days_before)
+
+    LeafProvenance.objects.create(
+        garden=g1,
+        batch=b1,
+        villageGroup="云雾村一组",
+        pickedOn=picked(b1),
+        registrar="张采青",
+    )
+    LeafProvenance.objects.create(
+        garden=g1,
+        batch=b2,
+        villageGroup="云雾村二组",
+        pickedOn=picked(b2),
+        registrar="李露生",
+    )
+    LeafProvenance.objects.create(
+        garden=g2,
+        batch=b3,
+        villageGroup="竹影村三组",
+        pickedOn=picked(b3, days_before=1),
+        registrar="王雾根",
+    )
+    LeafProvenance.objects.create(
+        garden=g2,
+        batch=b4,
+        villageGroup="竹影村一组",
+        pickedOn=picked(b4),
+        registrar="赵芽农",
+    )

@@ -40,4 +40,24 @@ urlpatterns = [
         views.BatchDeleteView.as_view(),
         name="batch_delete",
     ),
+    path(
+        "provenances/",
+        views.ProvenanceListView.as_view(),
+        name="provenance_list",
+    ),
+    path(
+        "provenances/new/",
+        views.ProvenanceCreateView.as_view(),
+        name="provenance_create",
+    ),
+    path(
+        "provenances/<int:pk>/edit/",
+        views.ProvenanceUpdateView.as_view(),
+        name="provenance_edit",
+    ),
+    path(
+        "provenances/<int:pk>/delete/",
+        views.ProvenanceDeleteView.as_view(),
+        name="provenance_delete",
+    ),
 ]

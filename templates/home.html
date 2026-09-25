@@ -8,9 +8,32 @@
   <div class="stat"><div class="num">{{ garden_count }}</div><div class="label">茶园</div></div>
   <div class="stat"><div class="num">{{ trough_count }}</div><div class="label">萎凋槽</div></div>
   <div class="stat"><div class="num">{{ batch_count }}</div><div class="label">萎凋批次</div></div>
+  <div class="stat"><div class="num">{{ provenance_count }}</div><div class="label">溯源条</div></div>
   <div class="stat"><div class="num">{{ loading_count }}</div><div class="label">装叶中</div></div>
   <div class="stat"><div class="num">{{ withering_count }}</div><div class="label">萎凋中</div></div>
   <div class="stat"><div class="num">{{ ready_count }}</div><div class="label">可下槽</div></div>
 </div>
-<p class="muted" style="margin-top:1.25rem">规则提示：槽位设为「可下槽」时，最新批次实测含水率须已填写且不超过 40%。</p>
+<div class="card" style="margin-top:1.25rem">
+  <h2 style="margin-top:0;font-size:1.15rem;color:var(--tea-green-dark)">各园溯源条数对照</h2>
+  <table class="data">
+    <thead>
+      <tr>
+        <th>茶园</th>
+        <th>溯源条数</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for g in garden_provenances %}
+      <tr>
+        <td>{{ g.name }}</td>
+        <td>{{ g.provenance_count }}</td>
+        <td><a class="btn btn-sm btn-secondary" href="{% url 'provenance_list' %}?garden={{ g.pk }}">查看该园溯源条</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted" style="margin-bottom:0">对账口径：表中条数与「茶青溯源」列表按该园过滤后的行数完全相等。</p>
+</div>
+<p class="muted" style="margin-top:1.25rem">规则提示：槽位设为「可下槽」时，最新批次实测含水率须已填写且不超过 40%。溯源条须园批一致，且采摘日不晚于批次开始日（东八区）。</p>
 {% endblock %}
