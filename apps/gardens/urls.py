@@ -40,4 +40,16 @@ urlpatterns = [
         views.BatchDeleteView.as_view(),
         name="batch_delete",
     ),
+    path("strips/", views.StripListView.as_view(), name="strip_list"),
+    path("strips/new/", views.StripCreateView.as_view(), name="strip_create"),
+    path(
+        "strips/<int:pk>/edit/",
+        views.StripUpdateView.as_view(),
+        name="strip_edit",
+    ),
+    path(
+        "strips/<int:pk>/delete/",
+        views.StripDeleteView.as_view(),
+        name="strip_delete",
+    ),
 ]

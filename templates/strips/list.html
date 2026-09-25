@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}茶青溯源{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>茶青溯源</h1>
+  <div class="actions">
+    <button class="btn btn-secondary btn-sm"
+            hx-get="{% url 'strip_list' %}{% if active_garden %}?garden={{ active_garden }}{% endif %}"
+            hx-target="#strip-table"
+            hx-swap="innerHTML">刷新列表</button>
+    <a class="btn" href="{% url 'strip_create' %}">新建溯源条</a>
+  </div>
+</div>
+<div class="card" style="margin-bottom:1rem">
+  <form method="get" action="{% url 'strip_list' %}" class="actions" style="align-items:center;margin:0">
+    <label for="garden-filter" style="font-weight:600">按茶园过滤</label>
+    <select id="garden-filter" name="garden" class="input" style="max-width:240px">
+      <option value="">全部茶园</option>
+      {% for g in gardens %}
+      <option value="{{ g.pk }}" {% if active_garden == g.pk|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-sm" type="submit">筛选</button>
+    {% if active_garden %}
+    <a class="btn btn-sm btn-secondary" href="{% url 'strip_list' %}">清除过滤</a>
+    {% endif %}
+  </form>
+</div>
+<div class="card" id="strip-table">
+  {% include "strips/_table.html" %}
+</div>
+{% endblock %}

@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Count
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
@@ -12,8 +13,13 @@ from django.views.generic import (
     UpdateView,
 )
 
-from .forms import GardenForm, TroughForm, WitherBatchForm
-from .models import Garden, Trough, WitherBatch
+from .forms import (
+    GardenForm,
+    LeafProvenanceForm,
+    TroughForm,
+    WitherBatchForm,
+)
+from .models import Garden, LeafProvenance, Trough, WitherBatch
 
 
 def _wants_htmx(request):
@@ -26,6 +32,11 @@ def home(request):
         "garden_count": Garden.objects.count(),
         "trough_count": Trough.objects.count(),
         "batch_count": WitherBatch.objects.count(),
+        "strip_count": LeafProvenance.objects.count(),
+        # 各园溯源条数：与溯源列表按园过滤后的行数同一口径，用于对账
+        "garden_strip_counts": Garden.objects.annotate(
+            strip_count=Count("strips")
+        ),
         "ready_count": Trough.objects.filter(status=Trough.STATUS_READY).count(),
         "withering_count": Trough.objects.filter(
             status=Trough.STATUS_WITHERING
@@ -88,6 +99,15 @@ class GardenDeleteView(LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy("garden_list")
 
     def form_valid(self, form):
+        # 仍有茶青溯源条的茶园拒绝删除（模型层同为 PROTECT）
+        strip_count = self.object.strips.count()
+        if strip_count:
+            messages.error(
+                self.request,
+                f"茶园「{self.object.name}」仍有 {strip_count} 条茶青溯源，"
+                "已拒绝删除。",
+            )
+            return redirect("garden_list")
         messages.success(self.request, "茶园已删除")
         return super().form_valid(form)
 
@@ -199,4 +219,71 @@ class BatchDeleteView(LoginRequiredMixin, DeleteView):
 
     def form_valid(self, form):
         messages.success(self.request, "萎凋批次已删除")
+        return super().form_valid(form)
+
+
+# ---- LeafProvenance（茶青溯源条） ----
+
+
+class StripListView(LoginRequiredMixin, ListView):
+    model = LeafProvenance
+    template_name = "strips/list.html"
+    context_object_name = "strips"
+
+    def get_queryset(self):
+        qs = LeafProvenance.objects.select_related(
+            "garden", "batch", "batch__trough"
+        )
+        garden = self.request.GET.get("garden")
+        if garden:
+            qs = qs.filter(garden_id=garden)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["gardens"] = Garden.objects.all()
+        context["active_garden"] = self.request.GET.get("garden", "")
+        return context
+
+    def get(self, request, *args, **kwargs):
+        self.object_list = self.get_queryset()
+        if _wants_htmx(request):
+            html = render_to_string(
+                "strips/_table.html",
+                {"strips": self.object_list},
+                request=request,
+            )
+            return HttpResponse(html)
+        return super().get(request, *args, **kwargs)
+
+
+class StripCreateView(LoginRequiredMixin, CreateView):
+    model = LeafProvenance
+    form_class = LeafProvenanceForm
+    template_name = "strips/form.html"
+    success_url = reverse_lazy("strip_list")
+
+    def form_valid(self, form):
+        messages.success(self.request, "茶青溯源条已创建")
+        return super().form_valid(form)
+
+
+class StripUpdateView(LoginRequiredMixin, UpdateView):
+    model = LeafProvenance
+    form_class = LeafProvenanceForm
+    template_name = "strips/form.html"
+    success_url = reverse_lazy("strip_list")
+
+    def form_valid(self, form):
+        messages.success(self.request, "茶青溯源条已更新")
+        return super().form_valid(form)
+
+
+class StripDeleteView(LoginRequiredMixin, DeleteView):
+    model = LeafProvenance
+    template_name = "strips/confirm_delete.html"
+    success_url = reverse_lazy("strip_list")
+
+    def form_valid(self, form):
+        messages.success(self.request, "茶青溯源条已删除")
         return super().form_valid(form)

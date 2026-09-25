@@ -3,11 +3,11 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from .models import Garden, Trough, WitherBatch
+from .models import Garden, LeafProvenance, Trough, WitherBatch
 
 
 def ensure_seed_data():
-    """Idempotent seed: users + sample gardens/troughs/batches."""
+    """Idempotent seed: users + sample gardens/troughs/batches/strips."""
     User = get_user_model()
 
     if not User.objects.filter(username="admin").exists():
@@ -16,9 +16,13 @@ def ensure_seed_data():
     if not User.objects.filter(username="witherer").exists():
         User.objects.create_user("witherer", "witherer@teawither.local", "123456")
 
-    if Garden.objects.exists():
-        return
+    if not Garden.objects.exists():
+        _seed_gardens_troughs_batches()
 
+    _ensure_strips()
+
+
+def _seed_gardens_troughs_batches():
     g1 = Garden.objects.create(
         name="云雾岭一号园",
         altitudeBand="800-1000m",
@@ -92,3 +96,23 @@ def ensure_seed_data():
     )
     t4.status = Trough.STATUS_READY
     t4.save()
+
+
+def _ensure_strips():
+    """两园多条溯源条；幂等：已有溯源条则跳过。"""
+    if LeafProvenance.objects.exists():
+        return
+    batches = list(
+        WitherBatch.objects.select_related("trough", "trough__garden").order_by("id")
+    )
+    villages = ["云岭村一组", "云岭村二组", "竹坪村三组", "竹坪村四组"]
+    for i, batch in enumerate(batches):
+        # 园批一致：条上茶园直接取批次槽位所属茶园；
+        # 采摘日取批次开始日的东八区日期，满足“不晚于”规则。
+        LeafProvenance.objects.create(
+            garden=batch.trough.garden,
+            batch=batch,
+            villageGroup=villages[i % len(villages)],
+            pickingDate=timezone.localtime(batch.startedAt).date(),
+            registrar="witherer" if i % 2 == 0 else "admin",
+        )

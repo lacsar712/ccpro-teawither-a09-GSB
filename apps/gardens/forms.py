@@ -1,6 +1,7 @@
 from django import forms
+from django.utils import timezone
 
-from .models import Garden, Trough, WitherBatch
+from .models import Garden, LeafProvenance, Trough, WitherBatch
 
 
 class GardenForm(forms.ModelForm):
@@ -60,7 +61,36 @@ class WitherBatchForm(forms.ModelForm):
             "%Y-%m-%d %H:%M",
         ]
         if self.instance and self.instance.pk and self.instance.startedAt:
-            from django.utils import timezone
-
             local = timezone.localtime(self.instance.startedAt)
             self.initial["startedAt"] = local.strftime("%Y-%m-%dT%H:%M")
+
+
+class LeafProvenanceForm(forms.ModelForm):
+    class Meta:
+        model = LeafProvenance
+        fields = ["garden", "batch", "villageGroup", "pickingDate", "registrar"]
+        widgets = {
+            "garden": forms.Select(attrs={"class": "input"}),
+            "batch": forms.Select(attrs={"class": "input"}),
+            "villageGroup": forms.TextInput(attrs={"class": "input"}),
+            "pickingDate": forms.DateInput(
+                attrs={"class": "input", "type": "date"},
+                format="%Y-%m-%d",
+            ),
+            "registrar": forms.TextInput(attrs={"class": "input"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["pickingDate"].input_formats = ["%Y-%m-%d"]
+        batch_field = self.fields["batch"]
+        batch_field.queryset = WitherBatch.objects.select_related(
+            "trough", "trough__garden"
+        )
+        # 下拉直接标注批次所属茶园，便于保持园批一致
+        batch_field.label_from_instance = (
+            lambda b: (
+                f"{b.trough.garden.name} / {b.trough.troughCode}"
+                f" @ {timezone.localtime(b.startedAt):%Y-%m-%d %H:%M}"
+            )
+        )

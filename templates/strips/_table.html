@@ -1,0 +1,32 @@
+<p class="muted" style="margin-top:0">共 {{ strips|length }} 条（与首页按园条数对账口径一致）</p>
+{% if strips %}
+<table class="data">
+  <thead>
+    <tr>
+      <th>所属茶园</th>
+      <th>关联批次</th>
+      <th>鲜叶村组</th>
+      <th>采摘日</th>
+      <th>登记人</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for s in strips %}
+    <tr>
+      <td>{{ s.garden.name }}</td>
+      <td>{{ s.batch.trough.troughCode }} @ {{ s.batch.startedAt|date:"Y-m-d H:i" }}</td>
+      <td>{{ s.villageGroup }}</td>
+      <td>{{ s.pickingDate|date:"Y-m-d" }}</td>
+      <td>{{ s.registrar }}</td>
+      <td class="actions">
+        <a class="btn btn-sm btn-secondary" href="{% url 'strip_edit' s.pk %}">编辑</a>
+        <a class="btn btn-sm btn-danger" href="{% url 'strip_delete' s.pk %}">删除</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">暂无茶青溯源条。</p>
+{% endif %}

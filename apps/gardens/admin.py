@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Garden, Trough, WitherBatch
+from .models import Garden, LeafProvenance, Trough, WitherBatch
 
 
 @admin.register(Garden)
@@ -27,3 +27,17 @@ class WitherBatchAdmin(admin.ModelAdmin):
         "rollGrade",
     )
     list_filter = ("rollGrade",)
+
+
+@admin.register(LeafProvenance)
+class LeafProvenanceAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "garden",
+        "batch",
+        "villageGroup",
+        "pickingDate",
+        "registrar",
+    )
+    list_filter = ("garden",)
+    search_fields = ("villageGroup", "registrar")
